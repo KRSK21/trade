@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="交易记账">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>交易记账</title>
+<style>
+  :root{
+    --bg:#fff; --fg:#1f2328; --muted:#6b7280; --line:#e8e8e8;
+    --accent:#2f6df6; --soft:#f7f8fa; --up:#c0392b; --down:#1e8e3e;
+    --radius:12px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  body{padding:14px 14px calc(96px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto}
+  h1{font-size:17px;margin:0 0 2px;letter-spacing:.3px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:12px}
+  .card{background:var(--soft);border-radius:var(--radius);padding:12px;margin-bottom:12px}
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+  input,select,textarea{width:100%;padding:10px 11px;border:1px solid var(--line);
+    border-radius:9px;background:#fff;color:var(--fg);font-size:15px;font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:2px solid #dbe6ff;border-color:var(--accent)}
+  textarea{resize:vertical;min-height:52px}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1;min-width:0}
+  .seg{display:flex;gap:6px;margin-top:2px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:64px;padding:9px 0;border:1px solid var(--line);background:#fff;
+    border-radius:9px;font-size:14px;color:var(--fg);font-family:inherit;cursor:pointer}
+  .seg button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .disc{display:flex;gap:6px;margin-top:2px}
+  .disc button{flex:1;padding:10px 0;border:1px solid var(--line);background:#fff;
+    border-radius:9px;font-size:14px;color:var(--fg);font-family:inherit;cursor:pointer}
+  .disc button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .btn{width:100%;padding:13px;border:0;border-radius:11px;background:var(--accent);
+    color:#fff;font-size:16px;font-weight:600;font-family:inherit;cursor:pointer;margin-top:14px}
+  .btn.ghost{background:#fff;color:var(--fg);border:1px solid var(--line);font-weight:500;font-size:14px;padding:11px}
+  .btn:active{opacity:.85}
+  .list{margin-top:4px}
+  .item{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;
+    padding:11px 0;border-bottom:1px solid #f0f0f0}
+  .item:last-child{border-bottom:0}
+  .item .l{min-width:0}
+  .item .t{font-size:14px;font-weight:600}
+  .item .d{font-size:12px;color:var(--muted);margin-top:2px;word-break:break-all}
+  .del{border:0;background:transparent;color:#c0392b;font-size:13px;padding:4px 6px;cursor:pointer}
+  .tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:5px;background:#eef2ff;color:#3b5bdb;margin-left:6px}
+  .tag.f{background:#fff3e6;color:#b35c00}
+  .tag.warn{background:#ffeceb;color:#c0392b;margin-left:0}
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:22px 0}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;max-width:560px;margin:0 auto}
+  .bar .btn{margin:0;padding:11px 0;font-size:14px}
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#1f2328;color:#fff;
+    padding:9px 16px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9}
+  .toast.on{opacity:.95}
+  details{margin-top:10px}
+  summary{font-size:13px;color:var(--muted);cursor:pointer;padding:6px 0}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .err{color:#c0392b;font-size:12px;margin-top:6px}
+
+  /* 顶部视图切换 */
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .viewnav{display:flex;background:var(--soft);border-radius:10px;padding:3px;gap:3px}
+  .viewnav button{border:0;background:transparent;padding:7px 14px;border-radius:8px;
+    font-size:14px;color:var(--muted);font-family:inherit;cursor:pointer}
+  .viewnav button.on{background:#fff;color:var(--fg);font-weight:600;
+    box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+  /* 汇总 */
+  .metrics{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .metric{flex:1;min-width:96px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+  .metric .k{font-size:11px;color:var(--muted)}
+  .metric .v{font-size:17px;font-weight:700;margin-top:2px;letter-spacing:-.3px}
+  .pos{color:var(--up)} .neg{color:var(--down)}
+  .stg{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  .stg th{font-weight:500;color:var(--muted);font-size:11px;text-align:right;padding:5px 4px;border-bottom:1px solid var(--line)}
+  .stg th:first-child,.stg td:first-child{text-align:left}
+  .stg td{padding:6px 4px;text-align:right;border-bottom:1px solid #f4f4f4}
+  .stg tr:last-child td{border-bottom:0}
+  pre.txt{background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px;
+    font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;
+    word-break:break-word;margin:0;max-height:340px;overflow:auto}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1 style="margin:0">交易记账</h1>
+  <div class="viewnav" id="viewnav">
+    <button data-v="entry" class="on">记录</button>
+    <button data-v="summary">汇总</button>
+  </div>
+</div>
+<div class="sub" id="summaryLine">本机 0 笔</div>
+
+<!-- ================= 记录 ================= -->
+<div id="viewEntry">
+  <div class="card">
+    <label>账户</label>
+    <div class="seg" id="accSeg">
+      <button type="button" data-v="stock" class="on">股票</button>
+      <button type="button" data-v="future">期货</button>
+    </div>
+
+    <label>方向</label>
+    <div class="seg" id="dirSeg"></div>
+
+    <div class="row">
+      <div><label>日期</label><input type="date" id="date"></div>
+      <div><label>标的</label><input id="symbol" placeholder="新易盛 / 鸡蛋2612"></div>
+    </div>
+
+    <div class="row">
+      <div><label>价格</label><input id="price" inputmode="decimal" placeholder="128.50"></div>
+      <div><label>数量</label><input id="qty" inputmode="decimal" placeholder="200"></div>
+      <div><label>手续费</label><input id="fee" inputmode="decimal" placeholder="0"></div>
+    </div>
+
+    <div id="multWrap" style="display:none">
+      <label>合约乘数</label>
+      <input id="mult" inputmode="decimal" placeholder="留空自动猜">
+    </div>
+
+    <label>策略</label>
+    <select id="strategy"></select>
+    <input id="strategyNew" placeholder="新策略名（选了「＋自定义」填这里）" style="display:none;margin-top:6px">
+
+    <label>开仓理由</label>
+    <input id="reason" placeholder="一句话：为什么是这一刻">
+
+    <div class="row">
+      <div><label>防守线</label><input id="stop" inputmode="decimal" placeholder="止损价"></div>
+      <div><label>目标位</label><input id="target" inputmode="decimal" placeholder="止盈价"></div>
+    </div>
+
+    <label>纪律评分</label>
+    <div class="disc" id="discSeg">
+      <button type="button" data-v="1">1</button>
+      <button type="button" data-v="2">2</button>
+      <button type="button" data-v="3">3</button>
+      <button type="button" data-v="4">4</button>
+      <button type="button" data-v="5">5</button>
+    </div>
+    <div class="hint">1 = 情绪化操作　5 = 严格按纪律</div>
+
+    <label>备注</label>
+    <textarea id="note" placeholder="当时的市场环境、仓位、心态"></textarea>
+
+    <div class="err" id="err"></div>
+    <button class="btn" id="save">保存这笔</button>
+  </div>
+
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">最近的记录</div>
+    <div class="list" id="list"></div>
+  </div>
+
+  <details>
+    <summary>导出 / 导入 / 清空</summary>
+    <div class="hint">数据只存在这台手机里。导出后发到电脑「数据」页导入，自动去重。</div>
+    <button class="btn ghost" id="expCsv" style="margin-top:8px">导出全部（.csv，Excel 直接开）</button>
+    <button class="btn ghost" id="expFile" style="margin-top:8px">导出全部（.json）</button>
+    <button class="btn ghost" id="expCopy" style="margin-top:8px">复制全部数据（发微信）</button>
+    <button class="btn ghost" id="impBtn" style="margin-top:8px">粘贴导入</button>
+    <textarea id="impArea" placeholder="把导出的 JSON 粘在这里" style="display:none;margin-top:8px"></textarea>
+    <button class="btn ghost" id="impDo" style="display:none;margin-top:8px">确认导入并合并</button>
+    <button class="btn ghost" id="clear" style="margin-top:8px;color:#c0392b">清空本机数据</button>
+  </details>
+</div>
+
+<!-- ================= 汇总 ================= -->
+<div id="viewSummary" style="display:none">
+  <div class="card">
+    <label style="margin-top:0">看哪一段</label>
+    <div class="seg" id="rangeSeg">
+      <button type="button" data-v="week">本周</button>
+      <button type="button" data-v="month">本月</button>
+      <button type="button" data-v="lastMonth">上月</button>
+      <button type="button" data-v="all">全部</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div><label>从</label><input type="date" id="from"></div>
+      <div><label>到</label><input type="date" id="to"></div>
+    </div>
+  </div>
+
+  <div class="metrics" id="metrics"></div>
+
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:2px">按策略</div>
+    <div id="stgBox"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px">汇总文字（可直接发给 AI）</div>
+    <pre class="txt" id="summaryText">—</pre>
+    <button class="btn ghost" id="copyText" style="margin-top:10px">复制这段文字</button>
+    <button class="btn ghost" id="dlText" style="margin-top:8px">下载 .txt</button>
+    <button class="btn ghost" id="dlRange" style="margin-top:8px">下载这段的 .csv</button>
+  </div>
+
+  <div class="card" id="posCard" style="display:none">
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px">当前持仓</div>
+    <div id="posBox"></div>
+  </div>
+
+  <div class="card" id="warnCard" style="display:none">
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:#c0392b">待处理</div>
+    <div id="warnBox" class="hint"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="calc.js"></script>
+<script>
+(function(){
+  "use strict";
+  var KEY = "trade-book-v1";
+  var DIRS = {stock:["买入","卖出"], future:["多开","空开","平多","平空"]};
+  var ACC = {stock:"股票", future:"期货"};
+  var BASE_STG = ["突破颈线","回踩支撑","超跌反弹","右侧追多","左侧摸顶","破位止损","趋势跟随","消息驱动","日内波段"];
+  var T = window.TradeCalc;
+  if (!T) { alert("calc.js 没加载成功，页面不完整"); }
+
+  var state = {account:"stock", direction:"买入", discipline:null, view:"entry", range:"month"};
+
+  function $(id){ return document.getElementById(id); }
+  function load(){
+    try { var r = localStorage.getItem(KEY); return r ? JSON.parse(r) : []; }
+    catch(e){ return []; }
+  }
+  function save(arr){ localStorage.setItem(KEY, JSON.stringify(arr)); }
+  function toast(msg){
+    var t = $("toast"); t.textContent = msg; t.classList.add("on");
+    clearTimeout(t._h); t._h = setTimeout(function(){ t.classList.remove("on"); }, 1700);
+  }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function num(v){ if(v===""||v==null) return null; var f = parseFloat(v); return isFinite(f)?f:null; }
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function iso(d){
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function fmtMoney(x){ return T.fmtMoney(x, true); }
+  function moneyCls(x){ return (x||0) > 0 ? "pos" : (x||0) < 0 ? "neg" : ""; }
+
+  function strategies(){
+    var custom = [];
+    load().forEach(function(r){
+      if(r.strategy && BASE_STG.indexOf(r.strategy) === -1 && custom.indexOf(r.strategy) === -1){
+        custom.push(r.strategy);
+      }
+    });
+    return BASE_STG.concat(custom);
+  }
+
+  // ---------- 记录视图 ----------
+  function renderDirs(){
+    var box = $("dirSeg"); box.innerHTML = "";
+    DIRS[state.account].forEach(function(d){
+      var b = document.createElement("button");
+      b.type="button"; b.textContent = d; b.dataset.v = d;
+      if(d === state.direction) b.className = "on";
+      b.onclick = function(){ state.direction = d; renderDirs(); };
+      box.appendChild(b);
+    });
+  }
+
+  function renderStrategy(){
+    var sel = $("strategy"), cur = sel.value;
+    sel.innerHTML = "";
+    strategies().forEach(function(s){
+      var o = document.createElement("option"); o.value = s; o.textContent = s; sel.appendChild(o);
+    });
+    var o = document.createElement("option"); o.value = "__new__"; o.textContent = "＋ 自定义…"; sel.appendChild(o);
+    if(cur && cur !== "__new__") sel.value = cur;
+    toggleNew();
+  }
+  function toggleNew(){ $("strategyNew").style.display = $("strategy").value === "__new__" ? "block" : "none"; }
+
+  function renderList(){
+    var arr = load(), box = $("list");
+    $("summaryLine").textContent = "本机 " + arr.length + " 笔 · 只存在这台手机上";
+    if(!arr.length){ box.innerHTML = '<div class="empty">还没有记录</div>'; return; }
+    box.innerHTML = arr.slice().reverse().slice(0, 40).map(function(r){
+      var idx = arr.indexOf(r);
+      var cls = r.account === "future" ? "tag f" : "tag";
+      return '<div class="item"><div class="l">' +
+        '<div class="t">' + esc(r.symbol) + "　" + esc(r.direction) + "　" +
+        (r.price) + "×" + (r.qty) +
+        '<span class="' + cls + '">' + esc(ACC[r.account]||r.account) + "</span></div>" +
+        '<div class="d">' + esc(r.trade_date) + " · " + esc(r.strategy||"") +
+        (r.discipline? " · 纪律"+r.discipline+"分" : "") +
+        (r.plan_reason ? " · " + esc(r.plan_reason) : "") + "</div></div>" +
+        '<button class="del" data-i="' + idx + '">删</button></div>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".del"), function(b){
+      b.onclick = function(){
+        var arr2 = load(), i = +b.dataset.i;
+        if(!confirm("删掉这条？")) return;
+        arr2.splice(i,1); save(arr2); renderList(); if(state.view==="summary") renderSummary();
+        toast("已删除");
+      };
+    });
+  }
+
+  function collect(){
+    var err = $("err"); err.textContent = "";
+    var acc = state.account, dir = state.direction;
+    var d = $("date").value;
+    var sym = $("symbol").value.trim();
+    var price = num($("price").value), qty = num($("qty").value);
+    var stg = $("strategy").value;
+    if(stg === "__new__") stg = $("strategyNew").value.trim();
+    var disc = state.discipline;
+    var msgs = [];
+    if(!d) msgs.push("日期必填");
+    if(!sym) msgs.push("标的必填");
+    if(!price || price <= 0) msgs.push("价格要大于 0");
+    if(!qty || qty <= 0) msgs.push("数量要大于 0");
+    if(!stg) msgs.push("策略必选");
+    if(!disc) msgs.push("纪律评分必选");
+    if(msgs.length){ err.textContent = msgs.join("；"); return null; }
+    var mult = num($("mult").value);
+    if(acc === "future" && !mult) mult = T.guessMult(sym) || 1;
+    return {
+      account: acc, trade_date: d, symbol: sym, direction: dir,
+      price: price, qty: qty,
+      fee: num($("fee").value) || 0,
+      multiplier: acc === "future" ? mult : 1,
+      strategy: stg,
+      plan_reason: $("reason").value.trim() || null,
+      stop_price: num($("stop").value),
+      target_price: num($("target").value),
+      discipline: disc,
+      note: $("note").value.trim() || null,
+      pnl_override: null
+    };
+  }
+
+  function doSave(){
+    var r = collect(); if(!r) return;
+    var arr = load(); arr.push(r); save(arr);
+    $("price").value = ""; $("qty").value = ""; $("fee").value = "";
+    $("reason").value = ""; $("stop").value = ""; $("target").value = "";
+    $("note").value = ""; $("mult").value = "";
+    state.discipline = null;
+    Array.prototype.forEach.call($("discSeg").children, function(b){ b.className = ""; });
+    renderStrategy(); renderList();
+    toast("已保存 · 共 " + arr.length + " 笔");
+  }
+
+  // ---------- 汇总视图 ----------
+  function rangeDates(kind){
+    var now = new Date();
+    var y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+    if(kind === "week"){
+      var dow = (now.getDay() + 6) % 7;           // 周一 = 0
+      var mon = new Date(y, m, d - dow);
+      return [iso(mon), iso(now)];
+    }
+    if(kind === "month"){ return [iso(new Date(y, m, 1)), iso(now)]; }
+    if(kind === "lastMonth"){
+      var first = new Date(y, m - 1, 1);
+      var last = new Date(y, m, 0);
+      return [iso(first), iso(last)];
+    }
+    return ["", ""];
+  }
+
+  function applyRange(kind){
+    state.range = kind;
+    var r = rangeDates(kind);
+    $("from").value = r[0];
+    $("to").value = r[1];
+    Array.prototype.forEach.call($("rangeSeg").children, function(b){
+      b.className = b.dataset.v === kind ? "on" : "";
+    });
+    renderSummary();
+  }
+
+  function renderSummary(){
+    var rows = load();
+    var from = $("from").value || "";
+    var to = $("to").value || "";
+    if(!rows.length){
+      $("metrics").innerHTML = '<div class="metric"><div class="k">没有数据</div><div class="v">—</div></div>';
+      $("stgBox").innerHTML = '<div class="empty">先记几笔再来</div>';
+      $("summaryText").textContent = "还没有记录。";
+      $("posCard").style.display = "none";
+      $("warnCard").style.display = "none";
+      return;
+    }
+    var s = T.summarize(rows, from, to, todayStr());
+    var o = s.overall;
+
+    $("metrics").innerHTML = [
+      ['操作', s.operations + " 笔", ""],
+      ['已结算', s.settledCount + " 笔", ""],
+      ['合计盈亏', fmtMoney(o.total), moneyCls(o.total)],
+      ['胜率', o.winRate === null ? "—" : o.winRate + "%", ""],
+      ['盈亏比', o.payoff === null ? "—" : o.payoff, ""],
+    ].map(function(m){
+      return '<div class="metric"><div class="k">' + m[0] + '</div><div class="v ' + m[2] + '">' + m[1] + '</div></div>';
+    }).join("");
+
+    if(!s.byStrategy.length){
+      $("stgBox").innerHTML = '<div class="empty">这段没有已结算的交易</div>';
+    } else {
+      var html = '<table class="stg"><tr><th>策略</th><th>笔数</th><th>盈亏</th><th>胜率</th><th>盈亏比</th></tr>';
+      s.byStrategy.forEach(function(x){
+        html += "<tr><td>" + esc(x.strategy) +
+          (x.n < 5 ? ' <span class="tag warn">样本少</span>' : "") + "</td>" +
+          "<td>" + x.n + "</td>" +
+          '<td class="' + moneyCls(x.total) + '">' + fmtMoney(x.total) + "</td>" +
+          "<td>" + (x.winRate === null ? "—" : x.winRate + "%") + "</td>" +
+          "<td>" + (x.payoff === null ? "—" : x.payoff) + "</td></tr>";
+      });
+      html += "</table>";
+      $("stgBox").innerHTML = html;
+    }
+
+    $("summaryText").textContent = T.summaryText(s, rows);
+
+    if(s.positions.length){
+      $("posCard").style.display = "block";
+      $("posBox").innerHTML = s.positions.map(function(p){
+        var unit = p.account === "stock" ? "股" : "手";
+        return '<div class="item"><div class="l"><div class="t">' + esc(p.symbol) + "　" +
+          (p.side === "long" ? "多" : "空") + "　" + T.fmtQty(p.qty) + " " + unit + "</div>" +
+          '<div class="d">成本 ' + T.fmtMoney(p.avgPrice) + " · " + esc(p.strategy || "") +
+          (p.openDate ? " · " + p.openDate + " 开" : "") + "</div></div></div>";
+      }).join("");
+    } else {
+      $("posCard").style.display = "none";
+    }
+
+    if(s.warnings.length){
+      $("warnCard").style.display = "block";
+      $("warnBox").innerHTML = s.warnings.slice(0, 6).map(function(w){ return "· " + esc(w); }).join("<br>");
+    } else {
+      $("warnCard").style.display = "none";
+    }
+  }
+
+  function rangeRows(){
+    var rows = load();
+    var from = $("from").value || "0000-00-00", to = $("to").value || "9999-99-99";
+    return rows.filter(function(r){
+      var d = String(r.trade_date || "");
+      return d >= from && d <= to;
+    });
+  }
+
+  function download(name, text, mime, bom){
+    var blob = new Blob([(bom ? "\ufeff" : "") + text], {type: mime});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  // ---------- 视图切换 ----------
+  function switchView(v){
+    state.view = v;
+    $("viewEntry").style.display = v === "entry" ? "block" : "none";
+    $("viewSummary").style.display = v === "summary" ? "block" : "none";
+    Array.prototype.forEach.call($("viewnav").children, function(b){
+      b.className = b.dataset.v === v ? "on" : "";
+    });
+    if(v === "summary"){ applyRange(state.range); }
+  }
+
+  // ---------- 事件绑定 ----------
+  Array.prototype.forEach.call($("viewnav").children, function(b){
+    b.onclick = function(){ switchView(b.dataset.v); };
+  });
+
+  Array.prototype.forEach.call($("accSeg").children, function(b){
+    b.onclick = function(){
+      state.account = b.dataset.v;
+      Array.prototype.forEach.call($("accSeg").children, function(x){ x.className = ""; });
+      b.className = "on";
+      state.direction = DIRS[state.account][0];
+      $("multWrap").style.display = state.account === "future" ? "block" : "none";
+      renderDirs();
+    };
+  });
+
+  Array.prototype.forEach.call($("discSeg").children, function(b){
+    b.onclick = function(){
+      state.discipline = +b.dataset.v;
+      Array.prototype.forEach.call($("discSeg").children, function(x){ x.className = ""; });
+      b.className = "on";
+    };
+  });
+
+  Array.prototype.forEach.call($("rangeSeg").children, function(b){
+    b.onclick = function(){ applyRange(b.dataset.v); };
+  });
+
+  $("from").onchange = renderSummary;
+  $("to").onchange = renderSummary;
+  $("strategy").onchange = toggleNew;
+  $("save").onclick = doSave;
+
+  $("copyText").onclick = function(){
+    var text = $("summaryText").textContent;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ toast("已复制，去发给 AI"); },
+        function(){ fallbackCopy(text); });
+    } else { fallbackCopy(text); }
+  };
+  $("dlText").onclick = function(){
+    download("交易汇总-" + todayStr() + ".txt", $("summaryText").textContent, "text/plain;charset=utf-8", false);
+    toast("已下载 txt");
+  };
+  $("dlRange").onclick = function(){
+    var rs = rangeRows();
+    if(!rs.length){ toast("这段没有记录"); return; }
+    download("交易记录-" + todayStr() + ".csv", T.toCSV(rs), "text/csv;charset=utf-8", true);
+    toast("已下载 csv（" + rs.length + " 笔）");
+  };
+
+  $("expCsv").onclick = function(){
+    var arr = load(); if(!arr.length){ toast("没数据"); return; }
+    download("交易记录-" + todayStr() + ".csv", T.toCSV(arr), "text/csv;charset=utf-8", true);
+    toast("已导出 CSV");
+  };
+  $("expFile").onclick = function(){
+    var arr = load(); if(!arr.length){ toast("没数据"); return; }
+    download("交易记录-" + todayStr() + ".json", JSON.stringify(arr, null, 1), "application/json", false);
+    toast("已导出 JSON");
+  };
+  $("expCopy").onclick = function(){
+    var arr = load(); if(!arr.length){ toast("没数据"); return; }
+    var text = JSON.stringify(arr);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ toast("已复制，去微信发给电脑"); },
+        function(){ fallbackCopy(text); });
+    } else { fallbackCopy(text); }
+  };
+  function fallbackCopy(text){
+    var ta = $("impArea");
+    ta.style.display = "block"; ta.value = text; ta.select();
+    try { document.execCommand("copy"); toast("已复制"); }
+    catch(e){ toast("复制失败，手动长按全选"); }
+  }
+
+  $("impBtn").onclick = function(){
+    var ta = $("impArea");
+    ta.style.display = ta.style.display === "block" ? "none" : "block";
+    $("impDo").style.display = ta.style.display;
+  };
+  $("impDo").onclick = function(){
+    var raw = $("impArea").value.trim();
+    if(!raw){ toast("先粘贴数据"); return; }
+    var incoming;
+    try { incoming = JSON.parse(raw); }
+    catch(e){ toast("不是合法的 JSON"); return; }
+    if(incoming && !Array.isArray(incoming)) incoming = incoming.trades || incoming.rows || [];
+    if(!Array.isArray(incoming)){ toast("格式不对"); return; }
+    var arr = load(), seen = {};
+    arr.forEach(function(r){ seen[keyOf(r)] = 1; });
+    var added = 0;
+    incoming.forEach(function(r){
+      var k = keyOf(r);
+      if(!seen[k]){ seen[k] = 1; arr.push(r); added++; }
+    });
+    save(arr); renderList(); renderSummary();
+    toast(added ? "合并了 " + added + " 笔" : "都是重复的，没有新增");
+  };
+  function keyOf(r){
+    return [r.trade_date, r.account, r.symbol, r.direction,
+      Math.round((+r.price||0)*1e4), Math.round((+r.qty||0)*1e4), r.strategy].join("|");
+  }
+
+  $("clear").onclick = function(){
+    if(!confirm("清空这台手机上的所有记录？导出的文件不受影响。")) return;
+    localStorage.removeItem(KEY); renderList(); renderSummary(); toast("已清空");
+  };
+
+  // ---------- 初始化 ----------
+  $("date").value = todayStr();
+  var r0 = rangeDates("month");
+  $("from").value = r0[0]; $("to").value = r0[1];
+  renderDirs(); renderStrategy(); renderList();
+  Array.prototype.forEach.call($("rangeSeg").children, function(b){
+    b.className = b.dataset.v === "month" ? "on" : "";
+  });
+
+  if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js", {scope: "./"}).catch(function(){});
+    });
+  }
+})();
+</script>
+</body>
+</html>
