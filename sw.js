@@ -1,6 +1,6 @@
 /* 离线缓存：第一次联网打开后，断网也能记。
    改了这个文件记得改 CACHE 版本号，不然手机上一直是旧的。 */
-const CACHE = "trade-book-v2";
+const CACHE = "trade-book-v4";
 const FILES = [
   "./",
   "./index.html",

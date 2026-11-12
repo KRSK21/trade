@@ -27,6 +27,11 @@
   label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
   input,select,textarea{width:100%;padding:10px 11px;border:1px solid var(--line);
     border-radius:9px;background:#fff;color:var(--fg);font-size:15px;font-family:inherit}
+  /* iOS 的日期控件自带宽度和高度，不压住就会撑出去 —— 日期和标的错位就是这么来的 */
+  input[type="date"]{-webkit-appearance:none;appearance:none;min-width:0;width:100%;
+    height:44px;line-height:44px;text-align:left;padding-top:0;padding-bottom:0}
+  input,select{height:44px}
+  .row{align-items:flex-end}
   input:focus,select:focus,textarea:focus{outline:2px solid #dbe6ff;border-color:var(--accent)}
   textarea{resize:vertical;min-height:52px}
   .row{display:flex;gap:8px}
@@ -65,6 +70,19 @@
   summary{font-size:13px;color:var(--muted);cursor:pointer;padding:6px 0}
   .hint{font-size:12px;color:var(--muted);margin-top:6px}
   .err{color:#c0392b;font-size:12px;margin-top:6px}
+
+  /* 标的：下拉 + 管理 */
+  .symrow{display:flex;gap:6px}
+  .symrow select{flex:1;min-width:0}
+  .mini{border:1px solid var(--line);background:#fff;border-radius:9px;padding:0 11px;
+    height:44px;font-size:13px;color:var(--muted);font-family:inherit;cursor:pointer;flex:0 0 auto}
+  .mini.on{color:var(--accent);border-color:#c9d8ff}
+  .symbox{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 11px;margin-top:6px}
+  .symbox .it{display:flex;justify-content:space-between;align-items:center;
+    padding:7px 0;border-bottom:1px solid #f4f4f4;font-size:14px}
+  .symbox .it:last-child{border-bottom:0}
+  .symbox .it .n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .symbox .e{color:var(--muted);font-size:12px;padding:6px 0}
 
   /* 顶部视图切换 */
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
@@ -114,13 +132,21 @@
     <div class="seg" id="dirSeg"></div>
 
     <div class="row">
-      <div><label>日期</label><input type="date" id="date"></div>
-      <div><label>标的</label><input id="symbol" placeholder="新易盛 / 鸡蛋2612"></div>
+      <div style="flex:0 0 44%"><label>日期</label><input type="date" id="date"></div>
+      <div style="flex:1">
+        <label>标的</label>
+        <div class="symrow">
+          <select id="symbolSel"></select>
+          <button type="button" class="mini" id="symManage">管理</button>
+        </div>
+      </div>
     </div>
+    <input id="symbolNew" placeholder="新标的，如 螺纹2605" style="display:none;margin-top:8px">
+    <div class="symbox" id="symBox" style="display:none"></div>
 
     <div class="row">
       <div><label>价格</label><input id="price" inputmode="decimal" placeholder="128.50"></div>
-      <div><label>数量</label><input id="qty" inputmode="decimal" placeholder="200"></div>
+      <div><label id="qtyLabel">数量（股）</label><input id="qty" inputmode="decimal" placeholder="200"></div>
       <div><label>手续费</label><input id="fee" inputmode="decimal" placeholder="0"></div>
     </div>
 
@@ -173,6 +199,8 @@
     <textarea id="impArea" placeholder="把导出的 JSON 粘在这里" style="display:none;margin-top:8px"></textarea>
     <button class="btn ghost" id="impDo" style="display:none;margin-top:8px">确认导入并合并</button>
     <button class="btn ghost" id="clear" style="margin-top:8px;color:#c0392b">清空本机数据</button>
+    <button class="btn ghost" id="btnUpdate" style="margin-top:8px">检查更新</button>
+    <div class="hint" id="verText"></div>
   </details>
 </div>
 
@@ -233,6 +261,9 @@
 
   var state = {account:"stock", direction:"买入", discipline:null, view:"entry", range:"month"};
 
+  /* 版本号：每次改完页面都要动它，并且在「检查更新」里能对上 */
+  var APP_VERSION = "2026-11-12.4";
+
   function $(id){ return document.getElementById(id); }
   function load(){
     try { var r = localStorage.getItem(KEY); return r ? JSON.parse(r) : []; }
@@ -264,6 +295,110 @@
       }
     });
     return BASE_STG.concat(custom);
+  }
+
+  // ---------- 标的列表 ----------
+  // 存在 localStorage；用户在「管理」里删掉的进 hidden，不影响已有记录
+  var SYM_KEY = "trade-book-symbols-v1";
+  var HIDE_KEY = "trade-book-hidden-symbols-v1";
+
+  function loadSyms(){
+    try { var r = localStorage.getItem(SYM_KEY); return r ? JSON.parse(r) : []; }
+    catch(e){ return []; }
+  }
+  function saveSyms(list){ localStorage.setItem(SYM_KEY, JSON.stringify(list)); }
+  function loadHidden(){
+    try { var r = localStorage.getItem(HIDE_KEY); return r ? JSON.parse(r) : []; }
+    catch(e){ return []; }
+  }
+  function saveHidden(list){ localStorage.setItem(HIDE_KEY, JSON.stringify(list)); }
+
+  /* 候选 = 手动的 + 记录里出现过的，按最后使用日期倒序 */
+  function symOptions(){
+    var hidden = loadHidden();
+    var lastUse = {};
+    load().forEach(function(r){
+      var s = r.symbol; if(!s) return;
+      var d = String(r.trade_date || "");
+      if(!lastUse[s] || d > lastUse[s]) lastUse[s] = d;
+    });
+    var seen = {}, out = [];
+    loadSyms().concat(Object.keys(lastUse)).forEach(function(s){
+      s = String(s || "").trim();
+      if(!s || seen[s] || hidden.indexOf(s) >= 0) return;
+      seen[s] = 1; out.push(s);
+    });
+    out.sort(function(a, b){
+      var da = lastUse[a] || "", db = lastUse[b] || "";
+      if(da !== db) return da < db ? 1 : -1;
+      return a.localeCompare(b, "zh");
+    });
+    return out;
+  }
+
+  function renderSymbols(){
+    var sel = $("symbolSel"), cur = sel.value;
+    var opts = symOptions();
+    sel.innerHTML = "";
+    opts.forEach(function(s){
+      var o = document.createElement("option"); o.value = s; o.textContent = s; sel.appendChild(o);
+    });
+    var o = document.createElement("option");
+    o.value = "__new__"; o.textContent = opts.length ? "＋ 新增标的…" : "＋ 添加第一个标的";
+    sel.appendChild(o);
+    if(cur && cur !== "__new__" && opts.indexOf(cur) >= 0) sel.value = cur;
+    else if(!opts.length) sel.value = "__new__";
+    toggleSymNew();
+  }
+
+  function toggleSymNew(){
+    $("symbolNew").style.display = $("symbolSel").value === "__new__" ? "block" : "none";
+  }
+
+  function symbolValue(){
+    var v = $("symbolSel").value;
+    if(v === "__new__") return $("symbolNew").value.trim();
+    return (v || "").trim();
+  }
+
+  function addSymbol(name){
+    name = String(name || "").trim();
+    if(!name) return;
+    var list = loadSyms(), hid = loadHidden();
+    if(list.indexOf(name) < 0) list.push(name);
+    saveSyms(list);
+    saveHidden(hid.filter(function(x){ return x !== name; }));
+  }
+
+  function renderSymBox(){
+    var box = $("symBox");
+    if(box.style.display === "none"){ box.style.display = "none"; return; }
+    var list = symOptions();
+    var html = list.length
+      ? list.map(function(s){
+          return '<div class="it"><span class="n">' + esc(s) + '</span>' +
+                 '<button class="del" data-s="' + esc(s) + '">删</button></div>';
+        }).join("")
+      : '<div class="e">还没有标的。上面选「＋ 新增标的」，保存一笔后它就会留在这里。</div>';
+    box.innerHTML = html;
+    Array.prototype.forEach.call(box.querySelectorAll(".del"), function(b){
+      b.onclick = function(){
+        var name = b.dataset.s;
+        if(!confirm("把「" + name + "」从列表里移除？已有的记录不受影响。")) return;
+        var hid = loadHidden();
+        if(hid.indexOf(name) < 0) hid.push(name);
+        saveHidden(hid);
+        saveSyms(loadSyms().filter(function(x){ return x !== name; }));
+        renderSymbols(); renderSymBox();
+      };
+    });
+  }
+
+  // ---------- 数量单位 ----------
+  function renderQtyUnit(){
+    var stock = state.account === "stock";
+    $("qtyLabel").textContent = stock ? "数量（股）" : "数量（手）";
+    $("qty").placeholder = stock ? "200" : "2";
   }
 
   // ---------- 记录视图 ----------
@@ -320,7 +455,7 @@
     var err = $("err"); err.textContent = "";
     var acc = state.account, dir = state.direction;
     var d = $("date").value;
-    var sym = $("symbol").value.trim();
+    var sym = symbolValue();
     var price = num($("price").value), qty = num($("qty").value);
     var stg = $("strategy").value;
     if(stg === "__new__") stg = $("strategyNew").value.trim();
@@ -353,12 +488,13 @@
   function doSave(){
     var r = collect(); if(!r) return;
     var arr = load(); arr.push(r); save(arr);
+    addSymbol(r.symbol);                       // 存过的标的留在下拉里
     $("price").value = ""; $("qty").value = ""; $("fee").value = "";
     $("reason").value = ""; $("stop").value = ""; $("target").value = "";
-    $("note").value = ""; $("mult").value = "";
+    $("note").value = ""; $("mult").value = ""; $("symbolNew").value = "";
     state.discipline = null;
     Array.prototype.forEach.call($("discSeg").children, function(b){ b.className = ""; });
-    renderStrategy(); renderList();
+    renderStrategy(); renderSymbols(); renderList();
     toast("已保存 · 共 " + arr.length + " 笔");
   }
 
@@ -495,6 +631,7 @@
       b.className = "on";
       state.direction = DIRS[state.account][0];
       $("multWrap").style.display = state.account === "future" ? "block" : "none";
+      renderQtyUnit();
       renderDirs();
     };
   });
@@ -514,6 +651,14 @@
   $("from").onchange = renderSummary;
   $("to").onchange = renderSummary;
   $("strategy").onchange = toggleNew;
+  $("symbolSel").onchange = toggleSymNew;
+  $("symManage").onclick = function(){
+    var box = $("symBox");
+    var open = box.style.display !== "block";
+    box.style.display = open ? "block" : "none";
+    this.className = open ? "mini on" : "mini";
+    renderSymBox();
+  };
   $("save").onclick = doSave;
 
   $("copyText").onclick = function(){
@@ -592,11 +737,39 @@
     localStorage.removeItem(KEY); renderList(); renderSummary(); toast("已清空");
   };
 
+  /* 检查更新：清掉 service worker 和缓存，再从网络重新下载。
+     只动程序文件，localStorage 里的交易记录不碰。 */
+  $("btnUpdate").onclick = function(){
+    if(!navigator.onLine){ toast("现在没联网，检查不了"); return; }
+    if(!confirm("会重新下载最新版并刷新页面。\n本机的交易记录不受影响。\n\n继续？")) return;
+    var btn = this;
+    btn.disabled = true; btn.textContent = "正在更新…";
+    var go = function(){
+      var u = location.pathname + "?v=" + Date.now();
+      location.replace(u);
+    };
+    var jobs = [];
+    if(window.caches && caches.keys){
+      jobs.push(caches.keys().then(function(keys){
+        return Promise.all(keys.map(function(k){ return caches.delete(k); }));
+      }));
+    }
+    if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations){
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function(regs){
+        return Promise.all(regs.map(function(r){ return r.unregister(); }));
+      }));
+    }
+    if(!jobs.length){ go(); return; }
+    Promise.all(jobs).then(go, go);
+  };
+
   // ---------- 初始化 ----------
   $("date").value = todayStr();
   var r0 = rangeDates("month");
   $("from").value = r0[0]; $("to").value = r0[1];
-  renderDirs(); renderStrategy(); renderList();
+  $("verText").textContent = "当前版本 " + APP_VERSION;
+  $("btnUpdate").textContent = "检查更新（当前 " + APP_VERSION + "）";
+  renderDirs(); renderStrategy(); renderSymbols(); renderQtyUnit(); renderList();
   Array.prototype.forEach.call($("rangeSeg").children, function(b){
     b.className = b.dataset.v === "month" ? "on" : "";
   });
